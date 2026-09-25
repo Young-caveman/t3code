@@ -13,12 +13,14 @@ downloader still resolves the official artifact for `0.0.42`.
 | ----------- | -------------------------------------- | ----------------------------------------- |
 | Source      | `/Users/jimmy/coding/t3code`           | `/cave/t3code`                            |
 | Branch      | `yash/swiftui-orchestrator-v2-support` | same                                      |
-| Revision    | `54883344f9`                           | same                                      |
+| Built from  | `54883344f9`                           | same                                      |
 | App         | `/Applications/T3 Code (Alpha).app`    | `~/Applications/T3 Code/T3 Code.AppImage` |
 | T3 home     | `~/.t3`                                | `~/.t3`                                   |
 | CLI runtime | `~/.t3/runtime/versions/0.0.42/t3`     | same path                                 |
 
-`origin` is `git@github.com:Young-caveman/t3code.git`, `upstream` is `https://github.com/pingdotgg/t3code.git`.
+"Built from" is the revision the installed app and runtime were compiled from, not a permanent pin on
+`HEAD`. `origin` is `git@github.com:Young-caveman/t3code.git`, `upstream` is
+`https://github.com/pingdotgg/t3code.git`.
 
 The T3 home paths are independent per host and do not have to match. `T3CODE_HOME` only decides
 where a process reads and writes state. What has to match is the code that mints an auth token and
@@ -95,8 +97,24 @@ cd /Users/jimmy/coding/t3code
 git fetch origin
 git checkout yash/swiftui-orchestrator-v2-support
 git pull --ff-only
-git rev-parse --short HEAD   # expect 54883344f9
+git rev-parse --short HEAD   # must match the revision the app and runtime were built from
 ```
+
+The same revision has to be checked out on every host, because the app and the CLI runtime are both
+built from it. Record the value; later steps compare against it rather than against a hash written
+here.
+
+If `git fetch origin` fails with `Permission denied (publickey)`, the machine has no working GitHub
+credentials. Fetch from the other host's checkout over the SSH alias that does work:
+
+```sh
+git remote add omarchy omarchy:/cave/t3code
+git fetch omarchy yash/swiftui-orchestrator-v2-support
+git merge --ff-only FETCH_HEAD
+```
+
+`git status` will then report the branch as ahead of `origin`, because the `origin` tracking ref is
+stale and unreachable. That is expected; do not switch remotes to silence it.
 
 If the app and runtime have to be rebuilt, also install dependencies with `vp i` and make sure a Rust
 toolchain is on `PATH` (`cargo --version`); the resource monitor is a Rust crate.
@@ -254,9 +272,10 @@ Expected: the token exchange returns `200` and the readback prints `"authenticat
 orchestration scopes. The `trap` revokes the test credential and closes the tunnel on any exit,
 including failure.
 
-Only after this passes should the environment be added in the app. A failed attempt can leave the
-desktop without a usable saved environment, and the runtime fix does not restore it; the environment
-has to be added again.
+A failed bootstrap does not invalidate the saved environment or its catalog entry, so correcting the
+runtime is normally the whole fix: the next attempt the desktop makes succeeds. Re-adding the
+environment by hand is a fallback for when the app lists no saved environment at all, not a required
+step after a `401`.
 
 ## Gotchas
 
@@ -276,7 +295,9 @@ has to be added again.
 
 ## Definition of done
 
-- `git rev-parse --short HEAD` is `54883344f9` on both hosts.
+- Both hosts are on the same source revision, and the app and the CLI runtime were built from it. The
+  binaries currently installed were built from `54883344f9`; a later commit that only touches docs does
+  not require a rebuild, but a commit that touches `apps/server` or `packages/ssh` does.
 - `~/.t3/runtime/versions/0.0.42/t3 --version` reports `0.0.42` and its hash matches the locally built
   binary on that platform.
 - `.install-complete` contains `0.0.42`.
