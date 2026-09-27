@@ -163,4 +163,53 @@ describe("orchestrator MCP contracts", () => {
       }).reason,
     ).toBe("Loop converged.");
   });
+
+  it("decodes JSON-encoded compatibility shapes some providers serialize on the wire", () => {
+    const delegate = decodeDelegateTaskInput({
+      task: "Reply with the single word PONG. Do not use tools.",
+      target:
+        '{"providerInstanceId": "codex", "model": "gpt-6-luna", "options": {"reasoningEffort": "max"}}',
+      mode: "wait",
+      timeoutMs: "30000",
+    });
+    expect(delegate.target).toEqual({
+      providerInstanceId: "codex",
+      model: "gpt-6-luna",
+      options: [{ id: "reasoningEffort", value: "max" }],
+    });
+    expect(delegate.timeoutMs).toBe(30_000);
+    expect(decodeThreadListInput({ includeSubagents: "true", limit: "10" })).toMatchObject({
+      includeSubagents: true,
+      limit: 10,
+    });
+    expect(
+      decodeThreadReadInput({
+        threadId: "thread-loop-1",
+        view: "activity",
+        limit: "5",
+        maxCharsPerItem: "500",
+      }),
+    ).toMatchObject({ limit: 5, maxCharsPerItem: 500 });
+  });
+
+  it("encodes JSON-decoded inputs back to the canonical typed form", () => {
+    const delegate = decodeDelegateTaskInput({
+      task: "Inspect the workspace and report the result.",
+      target: '{"providerInstanceId": "codex"}',
+    });
+    expect(Schema.encodeUnknownSync(OrchestratorMcpDelegateTaskInput)(delegate).target).toEqual({
+      providerInstanceId: "codex",
+    });
+    expect(
+      Schema.encodeUnknownSync(OrchestratorMcpThreadListInput)(
+        decodeThreadListInput({ limit: "25" }),
+      ).limit,
+    ).toBe(25);
+  });
+
+  it("still rejects values that are not coercible", () => {
+    expect(() => decodeThreadListInput({ limit: "definitely-not-a-number" })).toThrow();
+    expect(() => decodeDelegateTaskInput({ task: "t", target: "{not json" })).toThrow();
+    expect(() => decodeDelegateTaskInput({ task: "t", timeoutMs: "soon" })).toThrow();
+  });
 });

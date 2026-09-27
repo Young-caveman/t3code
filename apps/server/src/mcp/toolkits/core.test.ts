@@ -97,6 +97,21 @@ const client = McpSchema.McpServerClient.of({
   getClient: Effect.die("unused"),
 });
 
+/**
+ * Failure results surface as tool errors carrying the bounded public payload
+ * as text content. `structuredContent` only ever carries success results,
+ * because that is what MCP clients validate against the tool outputSchema.
+ */
+const failurePayload = (result: McpSchema.CallToolResult) => {
+  expect(result.isError).toBe(true);
+  expect(result.structuredContent).toBeUndefined();
+  const [text = ""] = result.content.flatMap((entry) =>
+    entry.type === "text" ? [entry.text] : [],
+  );
+  expect(text.length).toBeGreaterThan(0);
+  return JSON.parse(text);
+};
+
 it.effect("checks capability before accessing services through the production registration", () =>
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
@@ -107,7 +122,7 @@ it.effect("checks capability before accessing services through the production re
         Effect.provideService(McpInvocationContext, { ...scope, capabilities: new Set<never>() }),
         Effect.provideService(McpSchema.McpServerClient, client),
       );
-    expect(result.structuredContent).toMatchObject({ code: "capability_denied" });
+    expect(failurePayload(result)).toMatchObject({ code: "capability_denied" });
   }).pipe(
     Effect.provide(
       McpHttpServer.ThreadToolkitRegistrationLive.pipe(
@@ -128,7 +143,7 @@ it.effect("returns a bounded public failure without serializing storage causes",
         Effect.provideService(McpInvocationContext, scope),
         Effect.provideService(McpSchema.McpServerClient, client),
       );
-    expect(result.structuredContent).toEqual({
+    expect(failurePayload(result)).toEqual({
       _tag: "OrchestratorMcpFailure",
       code: "orchestration_error",
       message: "The operation could not be completed.",

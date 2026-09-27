@@ -67,6 +67,21 @@ const OrchestratorMcpSchedule = Schema.Union([
 });
 
 /**
+ * Accepts the canonical typed form plus the JSON-encoded compatibility shape
+ * some MCP providers serialize at the tool boundary (observed: `"target":
+ * "{\"providerInstanceId\":...}"`, `"limit": "10"`, `"includeSubagents":
+ * "true"`). Decodes to the same typed value; encoding always produces the
+ * canonical form.
+ */
+const fromJsonStringCompat = <S extends Schema.Constraint>(schema: S) =>
+  Schema.Union([
+    schema,
+    Schema.fromJsonString(schema).annotate({
+      description: "Compatibility-only JSON encoding of the value. Prefer the typed form.",
+    }),
+  ]);
+
+/**
  * Shorthand `{ id: value }` record form for target model options. Unlike the
  * legacy-tolerant `ProviderOptionSelections` persistence schema, this decodes
  * strictly: a value that is not a string or boolean fails the request rather
@@ -119,7 +134,7 @@ export const OrchestratorMcpTarget = Schema.Struct({
    * from the parent only when the child runs the parent's provider and model.
    */
   options: Schema.optional(
-    OrchestratorMcpTargetOptions.annotate({
+    fromJsonStringCompat(OrchestratorMcpTargetOptions).annotate({
       description: "Model option selections advertised by orchestrator_capabilities.",
     }),
   ),
@@ -169,7 +184,7 @@ export const OrchestratorMcpDelegateTaskInput = Schema.Struct({
   task: OrchestratorMcpPrompt.annotate({
     description: "Self-contained task for one delegated child agent/subagent.",
   }),
-  target: Schema.optional(OrchestratorMcpTarget),
+  target: Schema.optional(fromJsonStringCompat(OrchestratorMcpTarget)),
   title: Schema.optional(OrchestratorMcpTitle),
   role: Schema.optional(OrchestratorMcpTaskRole),
   mode: Schema.optional(
@@ -178,7 +193,7 @@ export const OrchestratorMcpDelegateTaskInput = Schema.Struct({
         "Defaults to async. Use wait only when this turn needs the child's result before you can continue.",
     }),
   ),
-  timeoutMs: Schema.optional(Schema.Number).annotate({
+  timeoutMs: Schema.optional(fromJsonStringCompat(Schema.Number)).annotate({
     description:
       "Wait budget for mode=wait only. Default 10 minutes. Elapsing it returns waitTimedOut=true on that call and does not cancel the child.",
   }),
@@ -232,7 +247,7 @@ export type OrchestratorMcpTaskCancelResult = typeof OrchestratorMcpTaskCancelRe
 export const OrchestratorMcpCreateThreadRequest = Schema.Struct({
   prompt: Schema.optional(OrchestratorMcpPrompt),
   title: Schema.optional(OrchestratorMcpTitle),
-  target: Schema.optional(OrchestratorMcpTarget),
+  target: Schema.optional(fromJsonStringCompat(OrchestratorMcpTarget)),
   runtimeMode: Schema.optional(OrchestratorMcpRuntimeMode),
   interactionMode: Schema.optional(OrchestratorMcpInteractionMode),
 });
@@ -284,9 +299,9 @@ export const OrchestratorMcpThreadListInput = Schema.Struct({
     Schema.Array(OrchestratorMcpThreadStatus).check(Schema.isMaxLength(10)),
   ),
   titleContains: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(256))),
-  includeSubagents: Schema.optional(Schema.Boolean),
-  cursor: Schema.optional(NonNegativeInt),
-  limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
+  includeSubagents: Schema.optional(fromJsonStringCompat(Schema.Boolean)),
+  cursor: Schema.optional(fromJsonStringCompat(NonNegativeInt)),
+  limit: Schema.optional(fromJsonStringCompat(PositiveInt.check(Schema.isLessThanOrEqualTo(100)))),
 });
 export type OrchestratorMcpThreadListInput = typeof OrchestratorMcpThreadListInput.Type;
 
@@ -322,12 +337,16 @@ export type OrchestratorMcpThreadListResult = typeof OrchestratorMcpThreadListRe
 export const OrchestratorMcpThreadReadInput = Schema.Struct({
   threadId: ThreadId,
   itemId: Schema.optional(TurnItemId),
-  textOffset: Schema.optional(NonNegativeInt),
+  textOffset: Schema.optional(fromJsonStringCompat(NonNegativeInt)),
   view: Schema.optional(Schema.Literals(["messages", "activity"])),
-  afterPosition: Schema.optional(NonNegativeInt),
-  limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(100))),
-  runLimit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
-  maxCharsPerItem: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50_000))),
+  afterPosition: Schema.optional(fromJsonStringCompat(NonNegativeInt)),
+  limit: Schema.optional(fromJsonStringCompat(PositiveInt.check(Schema.isLessThanOrEqualTo(100)))),
+  runLimit: Schema.optional(
+    fromJsonStringCompat(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
+  ),
+  maxCharsPerItem: Schema.optional(
+    fromJsonStringCompat(PositiveInt.check(Schema.isLessThanOrEqualTo(50_000))),
+  ),
 });
 export type OrchestratorMcpThreadReadInput = typeof OrchestratorMcpThreadReadInput.Type;
 
@@ -419,7 +438,7 @@ export type OrchestratorMcpThreadSendResult = typeof OrchestratorMcpThreadSendRe
 export const OrchestratorMcpThreadWaitInput = Schema.Struct({
   threadId: ThreadId,
   runId: Schema.optional(RunId),
-  timeoutMs: Schema.optional(Schema.Number),
+  timeoutMs: Schema.optional(fromJsonStringCompat(Schema.Number)),
 });
 export type OrchestratorMcpThreadWaitInput = typeof OrchestratorMcpThreadWaitInput.Type;
 
@@ -495,7 +514,9 @@ export const OrchestratorMcpScheduleTaskInput = Schema.Struct({
   schedule: OrchestratorMcpSchedule,
   title: Schema.optional(OrchestratorMcpTitle),
   enabled: Schema.optional(
-    Schema.Boolean.annotate({ description: "Whether the schedule starts enabled; defaults true." }),
+    fromJsonStringCompat(Schema.Boolean).annotate({
+      description: "Whether the schedule starts enabled; defaults true.",
+    }),
   ),
   /**
    * When true (the default), the scheduled task fires into the calling thread
@@ -503,7 +524,7 @@ export const OrchestratorMcpScheduleTaskInput = Schema.Struct({
    * "wake up in this thread" behaviour reserved for agent-created tasks.
    */
   bindToCurrentThread: Schema.optional(
-    Schema.Boolean.annotate({
+    fromJsonStringCompat(Schema.Boolean).annotate({
       description:
         "True (default) posts each run into this thread; false creates a fresh top-level thread per run.",
     }),
@@ -540,8 +561,8 @@ export const OrchestratorMcpUpdateScheduledTaskInput = Schema.Struct({
   prompt: Schema.optional(OrchestratorMcpPrompt),
   title: Schema.optional(OrchestratorMcpTitle),
   schedule: Schema.optional(OrchestratorMcpSchedule),
-  enabled: Schema.optional(Schema.Boolean),
-  bindToCurrentThread: Schema.optional(Schema.Boolean),
+  enabled: Schema.optional(fromJsonStringCompat(Schema.Boolean)),
+  bindToCurrentThread: Schema.optional(fromJsonStringCompat(Schema.Boolean)),
 });
 export type OrchestratorMcpUpdateScheduledTaskInput =
   typeof OrchestratorMcpUpdateScheduledTaskInput.Type;
