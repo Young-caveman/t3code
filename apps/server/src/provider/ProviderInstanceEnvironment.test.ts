@@ -5,7 +5,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 
-import { mergeProviderInstanceEnvironment } from "./ProviderInstanceEnvironment.ts";
+import {
+  mergeProviderInstanceEnvironment,
+  withLoopbackProxyBypass,
+} from "./ProviderInstanceEnvironment.ts";
 
 describe("mergeProviderInstanceEnvironment", () => {
   it.effect.each([
@@ -64,5 +67,29 @@ describe("mergeProviderInstanceEnvironment", () => {
       ANTHROPIC_API_KEY: "",
       PATH: "/bin",
     });
+  });
+});
+
+describe("withLoopbackProxyBypass", () => {
+  it("suppresses the system-proxy fallback when the user configured no proxy", () => {
+    const env = withLoopbackProxyBypass({ PATH: "/usr/bin" });
+    expect(env.HTTP_PROXY).toBe("");
+    expect(env.http_proxy).toBe("");
+    expect(env.HTTPS_PROXY).toBe("");
+    expect(env.ALL_PROXY).toBe("");
+    expect(env.NO_PROXY).toBe("127.0.0.1,localhost");
+    expect(env.no_proxy).toBe("127.0.0.1,localhost");
+    expect(env.PATH).toBe("/usr/bin");
+  });
+
+  it("keeps user-configured proxies and merges loopback into NO_PROXY", () => {
+    const env = withLoopbackProxyBypass({
+      HTTP_PROXY: "http://proxy.corp:3128",
+      NO_PROXY: "internal.corp",
+    });
+    expect(env.HTTP_PROXY).toBe("http://proxy.corp:3128");
+    expect(env.HTTPS_PROXY).toBeUndefined();
+    expect(env.NO_PROXY).toBe("internal.corp,127.0.0.1,localhost");
+    expect(env.no_proxy).toBe("internal.corp,127.0.0.1,localhost");
   });
 });
