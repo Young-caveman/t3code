@@ -103,7 +103,10 @@ import {
   codexAppServerArgs,
   resolveCodexLaunchArgs,
 } from "../../provider/Layers/codexLaunchArgs.ts";
-import { mergeProviderInstanceEnvironment } from "../../provider/ProviderInstanceEnvironment.ts";
+import {
+  mergeProviderInstanceEnvironment,
+  withLoopbackProxyBypass,
+} from "../../provider/ProviderInstanceEnvironment.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import {
   ProviderAdapterDriverCreateError,
@@ -1387,10 +1390,10 @@ export const codexAppServerClientFactoryFromSettingsLayer: Layer.Layer<
       open: (input) =>
         Effect.gen(function* () {
           const scope = yield* Scope.Scope;
-          const environment = {
+          const environment = withLoopbackProxyBypass({
             ...input.environment,
             ...(input.settings.homePath ? { CODEX_HOME: input.settings.homePath } : {}),
-          };
+          });
           const command = yield* makeCodexAppServerSpawnCommand({
             command: input.settings.binaryPath || "codex",
             args: codexAppServerArgs(
