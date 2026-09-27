@@ -101,7 +101,37 @@ function piModelsFromSettings(
   );
 }
 
-function parseDiscoveredModels(
+/**
+ * Pi serves several catalogs under one instance (Codex, OpenCode Go, whatever
+ * else the user authenticated). Distinct models can share a display name
+ * across sub-providers — Codex and OpenCode Go both serve "GPT-6 Luna" — so
+ * duplicate names get the sub-provider appended. This keeps picker rows
+ * distinguishable and name-based model resolution deterministic.
+ */
+const PI_SUB_PROVIDER_LABELS: Record<string, string> = {
+  "openai-codex": "Codex",
+  "opencode-go": "OpenCode Go",
+  deepseek: "DeepSeek",
+  openrouter: "OpenRouter",
+};
+
+function withDisambiguatedNames(
+  models: ReadonlyArray<ServerProviderModel>,
+): ReadonlyArray<ServerProviderModel> {
+  const counts = new Map<string, number>();
+  for (const model of models) {
+    const key = model.name.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return models.map((model) => {
+    if ((counts.get(model.name.toLowerCase()) ?? 0) < 2) return model;
+    const subProvider = model.slug.split("/")[0] ?? "";
+    const label = PI_SUB_PROVIDER_LABELS[subProvider] ?? subProvider;
+    return label === "" ? model : { ...model, name: `${model.name} (${label})` };
+  });
+}
+
+export function parseDiscoveredModels(
   data: unknown,
   defaultThinkingLevel: unknown,
 ): ReadonlyArray<ServerProviderModel> {
@@ -123,7 +153,7 @@ function parseDiscoveredModels(
       capabilities: thinkingCapabilitiesForPiModel(model, defaultThinkingLevel),
     });
   }
-  return parsed;
+  return withDisambiguatedNames(parsed);
 }
 
 const discoverPiViaRpc = (
