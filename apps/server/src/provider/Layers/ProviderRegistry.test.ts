@@ -899,6 +899,82 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
         );
       });
 
+      it("drops stale Pi models missing from a completed discovery probe", () => {
+        const previousProvider = {
+          instanceId: ProviderInstanceId.make("pi"),
+          driver: ProviderDriverKind.make("pi"),
+          status: "ready",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated", type: "pi" },
+          checkedAt: "2026-09-28T00:00:00.000Z",
+          version: "0.87.1",
+          models: [
+            {
+              slug: "openai-codex/gpt-6-luna",
+              name: "GPT-6 Luna (Codex)",
+              isCustom: false,
+              capabilities: null,
+            },
+            {
+              slug: "openrouter/dots-studio/dots-3-note-preview:free",
+              name: "Dots Studio: Dots3-Note Preview (free)",
+              isCustom: false,
+              capabilities: null,
+            },
+            { slug: "default", name: "Default", isCustom: false, capabilities: null },
+          ],
+          slashCommands: [],
+          skills: [],
+        } as const satisfies ServerProvider;
+        const refreshedProvider = {
+          ...previousProvider,
+          checkedAt: "2026-09-28T00:01:00.000Z",
+          models: [previousProvider.models[0], previousProvider.models[2]],
+        } satisfies ServerProvider;
+
+        assert.deepStrictEqual(mergeProviderSnapshot(previousProvider, refreshedProvider).models, [
+          ...refreshedProvider.models,
+        ]);
+      });
+
+      it("retains stale Pi models while discovery has not completed", () => {
+        const previousProvider = {
+          instanceId: ProviderInstanceId.make("pi"),
+          driver: ProviderDriverKind.make("pi"),
+          status: "ready",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated", type: "pi" },
+          checkedAt: "2026-09-28T00:00:00.000Z",
+          version: "0.87.1",
+          models: [
+            {
+              slug: "openai-codex/gpt-6-luna",
+              name: "GPT-6 Luna (Codex)",
+              isCustom: false,
+              capabilities: null,
+            },
+            { slug: "default", name: "Default", isCustom: false, capabilities: null },
+          ],
+          slashCommands: [],
+          skills: [],
+        } as const satisfies ServerProvider;
+        const failedProbeProvider = {
+          ...previousProvider,
+          status: "warning",
+          auth: { status: "unauthenticated", type: "pi" },
+          checkedAt: "2026-09-28T00:01:00.000Z",
+          models: [],
+          message: "Pi has no usable models. Run `pi` in a terminal and use /login.",
+        } satisfies ServerProvider;
+
+        assert.deepStrictEqual(
+          mergeProviderSnapshot(previousProvider, failedProbeProvider).models,
+          [...previousProvider.models],
+        );
+      });
+
       it("classifies pending, logout, uninstall, and reconnect OpenCode inventories", () => {
         const previousProvider = {
           instanceId: ProviderInstanceId.make("opencode"),
