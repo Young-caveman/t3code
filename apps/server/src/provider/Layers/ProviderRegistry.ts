@@ -114,6 +114,20 @@ const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean =>
     );
   }
 
+  if (provider.driver === ProviderDriverKind.make("pi")) {
+    // Pi's RPC discovery (`get_available_models`) returns the instance's
+    // complete inventory once it is up and authenticated, so a completed
+    // probe replaces the model list — otherwise models that leave Pi's
+    // catalogs (logged-out providers, retired entries) stay pinned forever
+    // through the snapshot cache. Failed or unauthenticated probes only know
+    // the settings fallback and stay partial.
+    return !(
+      provider.installed &&
+      provider.status === "ready" &&
+      provider.auth.status === "authenticated"
+    );
+  }
+
   const isAntigravity = provider.driver === ProviderDriverKind.make("antigravity");
   const isCodex = provider.driver === ProviderDriverKind.make("codex");
   if (!isAntigravity && !isCodex && provider.driver !== ProviderDriverKind.make("opencode")) {
