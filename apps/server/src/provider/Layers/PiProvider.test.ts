@@ -5,7 +5,7 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { checkPiProviderStatus, MINIMUM_PI_VERSION } from "./PiProvider.ts";
+import { checkPiProviderStatus, MINIMUM_PI_VERSION, parseDiscoveredModels } from "./PiProvider.ts";
 
 const encoder = new TextEncoder();
 
@@ -77,4 +77,54 @@ describe("PiProvider", () => {
       assert.include(snapshot.message ?? "", "could not refresh its models and commands");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+});
+
+describe("parseDiscoveredModels", () => {
+  it("suffixes duplicate display names with their sub-provider", () => {
+    const models = parseDiscoveredModels(
+      {
+        models: [
+          { provider: "openai-codex", id: "gpt-6-luna", name: "GPT-6 Luna" },
+          { provider: "opencode-go", id: "gpt-6-luna", name: "GPT-6 Luna" },
+        ],
+      },
+      "high",
+    );
+    assert.deepEqual(
+      models.map((model) => [model.slug, model.name]),
+      [
+        ["openai-codex/gpt-6-luna", "GPT-6 Luna (Codex)"],
+        ["opencode-go/gpt-6-luna", "GPT-6 Luna (OpenCode Go)"],
+      ],
+    );
+  });
+
+  it("leaves unique display names untouched", () => {
+    const models = parseDiscoveredModels(
+      { models: [{ provider: "deepseek", id: "deepseek-flash", name: "DeepSeek V4.1 Flash" }] },
+      "high",
+    );
+    assert.deepEqual(
+      models.map((model) => model.name),
+      ["DeepSeek V4.1 Flash"],
+    );
+  });
+
+  it("dedupes slugs and drops records missing provider or id", () => {
+    const models = parseDiscoveredModels(
+      {
+        models: [
+          { provider: "openai-codex", id: "gpt-6-luna", name: "GPT-6 Luna" },
+          { provider: "openai-codex", id: "gpt-6-luna", name: "GPT-6 Luna (duplicate)" },
+          { id: "orphan", name: "Orphan" },
+          { provider: "openai-codex", name: "No Id" },
+        ],
+      },
+      "high",
+    );
+    assert.deepEqual(
+      models.map((model) => [model.slug, model.name]),
+      [["openai-codex/gpt-6-luna", "GPT-6 Luna"]],
+    );
+  });
 });
