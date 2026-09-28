@@ -187,6 +187,22 @@ export const PiDriver: ProviderDriver<PiSettings, PiDriverEnv> = {
         accentColor,
         enabled,
         snapshot,
+        snapshotForCwd: (workspaceCwd) =>
+          !effectiveConfig.enabled
+            ? snapshot.getSnapshot
+            : checkPiProviderStatus(effectiveConfig, processEnv, workspaceCwd).pipe(
+                Effect.map(stampIdentity),
+                Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+                Effect.mapError(
+                  (cause) =>
+                    new ProviderDriverError({
+                      driver: DRIVER_KIND,
+                      instanceId,
+                      detail: `Failed to probe Pi commands and skills for '${workspaceCwd}'`,
+                      cause,
+                    }),
+                ),
+              ),
         orchestrationAdapter,
         textGeneration,
       } satisfies ProviderInstance;
