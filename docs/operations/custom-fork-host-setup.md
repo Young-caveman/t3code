@@ -13,7 +13,7 @@ downloader still resolves the official artifact for `0.0.42`.
 | ----------- | -------------------------------------- | ----------------------------------------- |
 | Source      | `/Users/jimmy/coding/t3code`           | `/cave/t3code`                            |
 | Branch      | `yash/swiftui-orchestrator-v2-support` | same                                      |
-| Built from  | `7b9b094d96`                           | same                                      |
+| Built from  | `588b205643`                           | same                                      |
 | App         | `/Applications/T3 Code (Alpha).app`    | `~/Applications/T3 Code/T3 Code.AppImage` |
 | T3 home     | `~/.t3`                                | `~/.t3`                                   |
 | CLI runtime | `~/.t3/runtime/versions/0.0.42/t3`     | same path                                 |
@@ -296,7 +296,7 @@ step after a `401`.
 ## Definition of done
 
 - Both hosts are on the same source revision, and the app and the CLI runtime were built from it. The
-  binaries currently installed were built from `7b9b094d96`; a later commit that only touches docs does
+  binaries currently installed were built from `588b205643`; a later commit that only touches docs does
   not require a rebuild, but a commit that touches `apps/server` or `packages/ssh` does.
 - `~/.t3/runtime/versions/0.0.42/t3 --version` reports `0.0.42` and its hash matches the locally built
   binary on that platform.
