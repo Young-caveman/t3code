@@ -9,14 +9,14 @@ downloader still resolves the official artifact for `0.0.42`.
 
 ## Hosts
 
-|             | macOS                                  | Linux (Omarchy)                           |
-| ----------- | -------------------------------------- | ----------------------------------------- |
-| Source      | `/Users/jimmy/coding/t3code`           | `/cave/t3code`                            |
-| Branch      | `caveman/v2`                           | same                                      |
-| Built from  | not yet rebuilt                        | not yet rebuilt                           |
-| App         | `/Applications/T3 Code (Alpha).app`    | `~/Applications/T3 Code/T3 Code.AppImage` |
-| T3 home     | `~/.t3`                                | `~/.t3`                                   |
-| CLI runtime | `~/.t3/runtime/versions/0.0.42/t3`     | same path                                 |
+|             | macOS                               | Linux (Omarchy)                           |
+| ----------- | ----------------------------------- | ----------------------------------------- |
+| Source      | `/Users/jimmy/coding/t3code`        | `/cave/t3code-worktrees/v2`               |
+| Branch      | `caveman/v2`                        | same                                      |
+| Built from  | `d3d34d4187`                        | `d3d34d4187`                              |
+| App         | `/Applications/T3 Code (Alpha).app` | `~/Applications/T3 Code/T3 Code.AppImage` |
+| T3 home     | `~/.t3`                             | `~/.t3`                                   |
+| CLI runtime | `~/.t3/runtime/versions/0.0.42/t3`  | same path                                 |
 
 "Built from" is the revision the installed app and runtime were compiled from, not a permanent pin on
 `HEAD`. `origin` is `git@github.com:Young-caveman/t3code.git`, `upstream` is
@@ -296,7 +296,7 @@ step after a `401`.
 ## Definition of done
 
 - Both hosts are on the same source revision, and the app and the CLI runtime were built from it. The
-  binaries currently installed are **not yet rebuilt** from this branch; a later commit that only touches
+  binaries currently installed were built from `d3d34d4187`; a later commit that only touches
   docs does not require a rebuild, but a commit that touches `apps/server` or `packages/ssh` does.
 - `~/.t3/runtime/versions/0.0.42/t3 --version` reports `0.0.42` and its hash matches the locally built
   binary on that platform.
