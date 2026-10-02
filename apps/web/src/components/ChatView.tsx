@@ -124,7 +124,10 @@ import {
 } from "@t3tools/shared/projectScripts";
 import { CHAT_LIST_ANCHOR_OFFSET } from "@t3tools/shared/chatList";
 import { derivePendingBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
-import { usageLimitRunPresentedAsLatest } from "@t3tools/shared/orchestrationV2ThreadError";
+import {
+  latestUnheldRun,
+  usageLimitRunPresentedAsLatest,
+} from "@t3tools/shared/orchestrationV2ThreadError";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { sourceControlRepositorySelector } from "@t3tools/shared/sourceControl";
 import { truncate } from "@t3tools/shared/String";
@@ -179,6 +182,7 @@ import {
   type TimelineEntriesProjection,
   deriveActivePlanState,
   deriveActiveWorkStartedAt,
+  deriveCanInterruptRunningThread,
   findLatestProposedPlan,
   hasActionableProposedPlan,
   isLatestRunSettled,
@@ -3461,12 +3465,6 @@ export default function ChatView(props: ChatViewProps) {
     if (serverProjection === null || serverProjection === undefined) {
       return [];
     }
-    const newestRun =
-      serverProjection.runs.length === 0
-        ? null
-        : serverProjection.runs.reduce((latest, candidate) =>
-            candidate.ordinal > latest.ordinal ? candidate : latest,
-          );
     const sessionError =
       serverProjection.providerSessions.findLast(
         (session) => session.providerInstanceId === serverProjection.thread.providerInstanceId,
@@ -3476,7 +3474,7 @@ export default function ChatView(props: ChatViewProps) {
         serverProjection.runs,
         serverProjection.turnItems,
         sessionError,
-      ) ?? newestRun;
+      ) ?? latestUnheldRun(serverProjection.runs);
     return [
       ...derivePendingBackgroundWork({
         latestRun,
@@ -4288,7 +4286,10 @@ export default function ChatView(props: ChatViewProps) {
   const focusComposer = useCallback(() => {
     composerRef.current?.focusAtEnd();
   }, [composerRef]);
-  const canInterruptRunningThread = activeThread !== undefined && phase === "running";
+  const canInterruptRunningThread = deriveCanInterruptRunningThread(
+    activeThread !== undefined,
+    activeRuntime,
+  );
   const onInterrupt = useCallback(async () => {
     if (!activeThread) return;
     const result = await interruptThreadTurn({
@@ -10372,7 +10373,7 @@ export default function ChatView(props: ChatViewProps) {
     threadId: activeThread.id,
     ...(draftId ? { draftId } : {}),
     activeProjectName: activeProject?.title,
-    activeProjectScripts: activeProject?.scripts,
+    activeProjectScripts: activeProject ? activeProjectScripts : undefined,
     preferredScriptId: activeProject
       ? (lastInvokedScriptByProjectId[activeProject.id] ?? null)
       : null,
@@ -10830,6 +10831,7 @@ export default function ChatView(props: ChatViewProps) {
                                 isLocalDraftThread && activeProject === null
                               }
                               phase={phase}
+                              canInterrupt={canInterruptRunningThread}
                               isConnecting={isConnecting}
                               isSendBusy={isSendBusy || isSavingQueuedEdit || isResuming}
                               canResume={resumableRunId !== null || hasHeldQueuedRuns}
